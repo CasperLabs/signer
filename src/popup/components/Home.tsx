@@ -8,9 +8,13 @@ import {
   WithStyles,
   Typography,
   withStyles,
-  Grid
+  Grid,
+  Popover,
+  IconButton
 } from '@material-ui/core';
 import AddCircleIcon from '@material-ui/icons/AddCircle';
+import NotInterestedIcon from '@material-ui/icons/NotInterested';
+import HelpIcon from '@material-ui/icons/Help';
 import { Link, Redirect } from 'react-router-dom';
 import AccountManager from '../container/AccountManager';
 import PopupManager from '../../background/PopupManager';
@@ -40,7 +44,29 @@ const styles = (theme: Theme) =>
         color: 'grey'
       }
     },
-    disabled: {}
+    disabled: {},
+    lockout: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      left: 0,
+      bottom: 0,
+      background:
+        'linear-gradient(30deg, var(--cspr-dark-blue) 50%, var(--cspr-red) 100%)',
+      padding: '2em',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      color: 'snow',
+      textAlign: 'center',
+      '& > *': {
+        marginBottom: '1rem'
+      },
+      '& > :nth-child(2)': {
+        fontSize: '1.2rem'
+      }
+    }
   });
 
 interface Props extends RouteComponentProps, WithStyles<typeof styles> {
@@ -52,8 +78,60 @@ interface Props extends RouteComponentProps, WithStyles<typeof styles> {
 }
 
 @observer
-class Home extends React.Component<Props, {}> {
+class Home extends React.Component<
+  Props,
+  { remainingMins: number; helpAnchorEl: HTMLButtonElement | null }
+> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      remainingMins: this.props.authContainer.remainingMins,
+      helpAnchorEl: null
+    };
+  }
+  // NOT USING THIS JUST NOW - BUT LEFT IT HERE IN CASE WE COME BACK TO USE THIS KIND OF METHOD
+  //
+  // componentDidMount() {
+  //   setTimeout(() => this.sessionTimeout(), 0.2 * 60 * 1000);
+  // }
+
+  // sessionTimeout() {
+  //   confirm(
+  //     'Are you there?',
+  //     'Your session is about to lock, would you like to keep it open?',
+  //     'Keep open',
+  //     'Lock',
+  //     { unmountAfter: 1000 }
+  //   ).then(
+  //     () => {
+  //       console.log('Keep open');
+  //       // Keep open - ask again in another X minutes
+  //       setTimeout(() => this.sessionTimeout(), 0.2 * 60 * 1000);
+  //     },
+  //     () => {
+  //       console.log('Lock');
+  //       // Lock
+  //       this.props.authContainer.lock();
+  //     }
+  //   );
+  // }
+
+  componentDidUpdate() {
+    if (this.props.authContainer.isLockedOut) {
+      this.props.errors.dismissLast();
+      this.props.homeContainer.homeForm.$.setPasswordField.reset();
+    }
+  }
+
   renderCreateNewVault() {
+    const showPasswordHelp = (event: React.MouseEvent<HTMLButtonElement>) => {
+      this.setState({ helpAnchorEl: event.currentTarget });
+    };
+    const helpOpen = Boolean(showPasswordHelp);
+    const helpId = helpOpen ? 'password-help' : undefined;
+    const closePasswordHelp = () => {
+      this.setState({ helpAnchorEl: null });
+    };
     return (
       <div>
         <Grid
@@ -75,8 +153,8 @@ class Home extends React.Component<Props, {}> {
           </Grid>
 
           <Grid item container>
-            <form style={{ textAlign: 'center' }}>
-              <FormControl fullWidth>
+            <form style={{ textAlign: 'center', width: '100%' }}>
+              <FormControl style={{ width: '80%' }}>
                 <TextFieldWithFormState
                   fieldState={
                     this.props.homeContainer.homeForm.$.setPasswordField
@@ -86,16 +164,65 @@ class Home extends React.Component<Props, {}> {
                   type={'password'}
                 />
               </FormControl>
-              <FormControl fullWidth>
-                <TextFieldWithFormState
-                  fieldState={
-                    this.props.homeContainer.homeForm.$.confirmPasswordField
-                  }
-                  required
-                  label={'Confirm Password'}
-                  type={'password'}
-                />
-              </FormControl>
+              <IconButton
+                onClick={showPasswordHelp}
+                style={{
+                  float: 'right',
+                  transform: 'translateY(.3em)'
+                }}
+              >
+                <HelpIcon />
+              </IconButton>
+              {this.state.helpAnchorEl && (
+                <Popover
+                  id={helpId}
+                  open={helpOpen}
+                  anchorEl={this.state.helpAnchorEl}
+                  onClose={closePasswordHelp}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right'
+                  }}
+                  transformOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right'
+                  }}
+                >
+                  <Typography
+                    component={'summary'}
+                    style={{
+                      padding: '1.4em',
+                      backgroundColor: 'var(--cspr-dark-blue)',
+                      color: 'white'
+                    }}
+                  >
+                    Please include at least one of each of the following:
+                    <ul>
+                      <li>lowercase letter</li>
+                      <li>UPPERCASE letter</li>
+                      <li>Number</li>
+                      <li>Special character</li>
+                    </ul>
+                    Or you can enter a &gt;20 char passphrase if you would
+                    prefer e.g. 'correct horse battery staple'
+                  </Typography>
+                </Popover>
+              )}
+              {this.props.homeContainer.homeForm.$.setPasswordField
+                .hasBeenValidated &&
+                !this.props.homeContainer.homeForm.$.setPasswordField
+                  .hasError && (
+                  <FormControl fullWidth>
+                    <TextFieldWithFormState
+                      fieldState={
+                        this.props.homeContainer.homeForm.$.confirmPasswordField
+                      }
+                      required
+                      label={'Confirm Password'}
+                      type={'password'}
+                    />
+                  </FormControl>
+                )}
               <Typography variant="subtitle2" className="text-danger">
                 {this.props.homeContainer.homeForm.showFormError &&
                   this.props.homeContainer.homeForm.formError}
@@ -208,8 +335,15 @@ class Home extends React.Component<Props, {}> {
 
   resetVaultOnClick() {
     confirm(
-      <div className="text-danger">Danger!</div>,
-      'Resetting vault will delete all imported accounts.'
+      <div className="text-danger">Reset Vault</div>,
+      'Resetting vault will permanently delete all accounts.',
+      'Reset',
+      'Cancel',
+      {
+        requireCheckbox: true,
+        checkboxText:
+          'I understand that I will not be able to recover any accounts stored in my vault unless I have backed them up.'
+      }
     ).then(() => {
       this.props.authContainer.resetVault();
       this.props.errors.dismissLast();
@@ -235,13 +369,13 @@ class Home extends React.Component<Props, {}> {
           </Grid>
 
           <Grid item container>
-            <form style={{ textAlign: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
               <FormControl fullWidth>
                 <TextFieldWithFormState
                   aria-label="Enter password for vault"
                   autoFocus={true}
                   fieldState={
-                    this.props.homeContainer.homeForm.$.setPasswordField
+                    this.props.homeContainer.homeForm.$.unlockPasswordField
                   }
                   required
                   id={'unlock-password'}
@@ -249,6 +383,14 @@ class Home extends React.Component<Props, {}> {
                   type={'password'}
                 />
               </FormControl>
+              {this.props.authContainer.remainingUnlockAttempts < 5 && (
+                <FormControl fullWidth style={{ marginTop: '.5rem' }}>
+                  <Typography variant={'subtitle1'}>
+                    Attempts remaining:{' '}
+                    {this.props.authContainer.remainingUnlockAttempts}
+                  </Typography>
+                </FormControl>
+              )}
               <FormControl fullWidth className={this.props.classes.margin}>
                 <Button
                   type="submit"
@@ -258,16 +400,16 @@ class Home extends React.Component<Props, {}> {
                     root: this.props.classes.unlockButton,
                     disabled: this.props.classes.disabled
                   }}
-                  disabled={this.props.homeContainer.submitDisabled}
+                  disabled={this.props.homeContainer.unlockDisabled}
                   onClick={async () => {
                     let password =
-                      this.props.homeContainer.homeForm.$.setPasswordField.$;
+                      this.props.homeContainer.homeForm.$.unlockPasswordField.$;
                     try {
                       await this.props.authContainer.unlock(password);
-                      this.props.homeContainer.homeForm.$.setPasswordField.reset();
+                      this.props.homeContainer.homeForm.$.unlockPasswordField.reset();
                       this.props.errors.dismissLast();
                     } catch (e) {
-                      this.props.homeContainer.homeForm.$.setPasswordField.setError(
+                      this.props.homeContainer.homeForm.$.unlockPasswordField.setError(
                         e.message
                       );
                     }
@@ -287,9 +429,35 @@ class Home extends React.Component<Props, {}> {
                   Reset Vault?
                 </a>
               </div>
-            </form>
+            </div>
           </Grid>
         </Grid>
+      </div>
+    );
+  }
+
+  renderLockedOut() {
+    if (
+      this.props.authContainer.isLockedOut &&
+      !this.props.authContainer.lockoutTimerStarted
+    ) {
+      // 5 minute timer before resetting lockout
+      this.props.authContainer.startLockoutTimer(
+        this.props.authContainer.timerDuration
+      );
+    }
+    return (
+      <div className={this.props.classes.lockout}>
+        <NotInterestedIcon style={{ fontSize: '5.5rem' }} />
+        <Typography variant={'body1'}>
+          Your vault has been temporarily locked out due to too many incorrect
+          password attempts.
+        </Typography>
+        <Typography variant={'h6'}>
+          Please try again in{' '}
+          {Math.round(this.props.authContainer.remainingMins)} minute
+          {this.props.authContainer.remainingMins <= 1 ? '.' : 's.'}
+        </Typography>
       </div>
     );
   }
@@ -311,7 +479,11 @@ class Home extends React.Component<Props, {}> {
           }
         }
       } else {
-        return this.renderUnlock();
+        if (this.props.authContainer.isLockedOut) {
+          return this.renderLockedOut();
+        } else {
+          return this.renderUnlock();
+        }
       }
     } else {
       return this.renderCreateNewVault();

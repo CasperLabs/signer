@@ -1,7 +1,11 @@
 import * as events from 'events';
 import { AppState } from '../lib/MemStore';
 import PopupManager from '../background/PopupManager';
-import { DeployUtil, encodeBase16, PublicKey } from 'casper-client-sdk';
+import {
+  DeployUtil,
+  encodeBase16,
+  CLPublicKey
+} from 'casper-js-sdk';
 
 export type deployStatus = 'unsigned' | 'signed' | 'failed';
 export interface deployWithID {
@@ -41,7 +45,7 @@ export interface DeployData {
  *       and both methods will fire a event `${msgId}:finished`, which is listened by step 1.
  *
  * Important to Note:
- *    Any mention of PublicKey below will refer to the hex-encoded bytes of the Public Key prefixed with 01 or 02
+ *    Any mention of CLPublicKey below will refer to the hex-encoded bytes of the Public Key prefixed with 01 or 02
  *    to denote the algorithm used to generate the key.
  *          01 - ed25519
  *          02 - secp256k1
@@ -106,9 +110,9 @@ export default class SignMessageManager extends events.EventEmitter {
         return reject(new Error('Please create an account first.'));
       }
       if (publicKey.isEd25519()) {
-        return resolve(publicKey.toAccountHex());
+        return resolve(publicKey.toHex());
       } else if (publicKey.isSecp256K1()) {
-        return resolve(publicKey.toAccountHex());
+        return resolve(publicKey.toHex());
       } else {
         return reject(new Error('Key was not of expected format!'));
       }
@@ -238,7 +242,7 @@ export default class SignMessageManager extends events.EventEmitter {
     // Reject if user switches keys during signing process
     if (
       deployData.signingKey &&
-      activeKeyPair.publicKey.toAccountHex() !== deployData.signingKey
+      activeKeyPair.publicKey.toHex() !== deployData.signingKey
     ) {
       deployData.status = 'failed';
       deployData.error = new Error('Active key changed during signing');
@@ -288,13 +292,11 @@ export default class SignMessageManager extends events.EventEmitter {
         // First let's check if the provided targetPublicKey matches the one used in deploy
         // We're doing it because its impossible to extract target in a form of PublicKey from Deploy
         const providedTargetKeyHash = encodeBase16(
-          PublicKey.fromHex(deploy.targetKey).toAccountHash()
+          CLPublicKey.fromHex(deploy.targetKey).toAccountHash()
         );
 
         const deployTargetKeyHash = encodeBase16(
-          deploy.deploy.session.transfer
-            ?.getArgByName('target')!
-            .asBytesArray()!
+          deploy.deploy.session.transfer?.getArgByName('target')!.value()
         );
 
         if (providedTargetKeyHash !== deployTargetKeyHash) {
@@ -307,42 +309,44 @@ export default class SignMessageManager extends events.EventEmitter {
 
         amount = deploy.deploy.session.transfer
           ?.getArgByName('amount')!
-          .asBigNumber()
+          .value()
           .toString();
       }
 
       if (deploy.deploy.session.storedContractByHash) {
         amount = deploy.deploy.session.storedContractByHash
           ?.getArgByName('amount')!
-          .asBigNumber()
+          .value()
           .toString();
 
-        validator = deploy.deploy.session.storedContractByHash
-          ?.getArgByName('validator')!
-          .asPublicKey()
-          .toAccountHex();
+        validator = (
+          deploy.deploy.session.storedContractByHash?.getArgByName(
+            'validator'
+          )! as CLPublicKey
+        ).toHex();
 
-        delegator = deploy.deploy.session.storedContractByHash
-          ?.getArgByName('delegator')!
-          .asPublicKey()
-          .toAccountHex();
+        delegator = (
+          deploy.deploy.session.storedContractByHash?.getArgByName(
+            'delegator'
+          )! as CLPublicKey
+        ).toHex();
       }
 
       const transferId = deploy.deploy.session.transfer
         ?.getArgByName('id')!
-        .asOption()
-        .getSome()
-        .asBigNumber()
+        .value()
+        .unwrap()
+        .value()
         .toString();
 
       return {
         deployHash: encodeBase16(deploy.deploy.hash),
         signingKey: deploy.signingKey,
-        account: header.account.toAccountHex(),
+        account: header.account.toHex(),
         chainName: header.chainName,
         timestamp: new Date(header.timestamp).toLocaleString(),
         gasPrice: header.gasPrice,
-        payment: encodeBase16(deploy.deploy.payment.toBytes()),
+        payment: encodeBase16(deploy.deploy.payment.toBytes().unwrap()),
         deployType: type,
         id: type === 'Transfer' ? transferId : undefined,
         amount: amount,

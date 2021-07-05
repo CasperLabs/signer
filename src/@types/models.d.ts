@@ -1,4 +1,4 @@
-import { Keys } from 'casper-client-sdk';
+import { Keys } from 'casper-js-sdk';
 
 interface KeyPairWithAlias {
   // Human readable alias.

@@ -28,6 +28,9 @@ export class BackgroundManager {
   @action.bound
   private onStateUpdate(appState: AppState) {
     this.appState.isUnlocked = appState.isUnlocked;
+    this.appState.unlockAttempts = appState.unlockAttempts;
+    this.appState.lockoutTimerStarted = appState.lockoutTimerStarted;
+    this.appState.remainingMins = appState.remainingMins;
     this.appState.currentTab = appState.currentTab;
     this.appState.connectionRequested = appState.connectionRequested;
     this.appState.connectedSites = appState.connectedSites;
@@ -124,6 +127,22 @@ export class BackgroundManager {
     return this.errors.withCapture(this.rpc.call<void>('account.resetVault'));
   }
 
+  public resetLockout() {
+    return this.errors.withCapture(this.rpc.call<void>('account.resetLockout'));
+  }
+
+  public startLockoutTimer(timeInMinutes: number) {
+    return this.errors.withCapture(
+      this.rpc.call<void>('account.startLockoutTimer', timeInMinutes)
+    );
+  }
+
+  public resetLockoutTimer() {
+    return this.errors.withCapture(
+      this.rpc.call<void>('account.resetLockoutTimer')
+    );
+  }
+
   public renameUserAccount(oldName: string, newName: string) {
     return this.errors.withCapture(
       this.rpc.call<void>('account.renameUserAccount', oldName, newName)
@@ -156,6 +175,12 @@ export class BackgroundManager {
   public resetConnectionRequest() {
     return this.errors.withCapture(
       this.rpc.call<void>('connection.resetConnectionRequest')
+    );
+  }
+
+  public confirmPassword(password: string) {
+    return this.errors.withCapture(
+      this.rpc.call<boolean>('account.confirmPassword', password)
     );
   }
 }

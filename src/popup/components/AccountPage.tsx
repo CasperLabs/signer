@@ -1,7 +1,6 @@
 import { observer } from 'mobx-react';
 import React from 'react';
 import AccountManager from '../container/AccountManager';
-import PopupManager from '../../background/PopupManager';
 import { RouteComponentProps, withRouter } from 'react-router';
 import { observable } from 'mobx';
 import {
@@ -21,9 +20,10 @@ import {
 } from '@material-ui/core';
 import { SelectFieldWithFormState, TextFieldWithFormState } from './Forms';
 import withStyles from '@material-ui/core/styles/withStyles';
-import { decodeBase16, decodeBase64, Keys } from 'casper-client-sdk';
+import { decodeBase16, decodeBase64, Keys } from 'casper-js-sdk';
 import { KeyPairWithAlias } from '../../@types/models';
 import Pages from './Pages';
+import { confirm } from './Confirmation';
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -46,13 +46,12 @@ interface Props extends RouteComponentProps, WithStyles<typeof styles> {
 interface State {
   keyDownloadEnabled: boolean;
   algoAnchorEl: HTMLButtonElement | null;
+  revealSecretKey: boolean;
 }
 
 @observer
 class AccountPage extends React.Component<Props, State> {
   @observable accountForm: ImportAccountFormData | CreateAccountFormData;
-
-  private popupManager: PopupManager;
 
   constructor(props: Props) {
     super(props);
@@ -63,9 +62,9 @@ class AccountPage extends React.Component<Props, State> {
     }
     this.state = {
       keyDownloadEnabled: false,
-      algoAnchorEl: null
+      algoAnchorEl: null,
+      revealSecretKey: false
     };
-    this.popupManager = new PopupManager();
   }
 
   async onCreateAccount() {
@@ -138,79 +137,12 @@ class AccountPage extends React.Component<Props, State> {
   }
 
   renderImportForm() {
-    // const showAlgoHelp = (event: React.MouseEvent<HTMLButtonElement>) => {
-    //   this.setState({ algoAnchorEl: event.currentTarget });
-    // };
-    // const helpOpen = Boolean(showAlgoHelp);
-    // const helpId = helpOpen ? 'algo-helper' : undefined;
-    // const helpClose = () => {
-    // this.setState({ algoAnchorEl: null });
-    // };
-
     const form = this.accountForm as ImportAccountFormData;
     return (
       <form className={this.props.classes.root}>
         <Typography id="continuous-slider" variant="h6" gutterBottom>
           Import from Secret Key File
         </Typography>
-        {/* <Box>
-          <FormControl
-            style={{
-              width: '80%',
-              marginBottom: '1rem'
-            }}
-          >
-            <InputLabel id="algo-select-lbl">Select algorithm</InputLabel>
-            <SelectFieldWithFormState
-              fullWidth
-              labelId="algo-select-lbl"
-              fieldState={this.accountForm.algorithm}
-              selectItems={[
-                { value: 'ed25519', text: 'ED25519' },
-                { value: 'secp256k1', text: 'SECP256k1' }
-              ]}
-            />
-          </FormControl>
-          <IconButton onClick={showAlgoHelp} style={{ float: 'right' }}>
-            <HelpIcon />
-          </IconButton>
-          {this.state.algoAnchorEl && (
-            <Popover
-              id={helpId}
-              open={helpOpen}
-              anchorEl={this.state.algoAnchorEl}
-              onClose={helpClose}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right'
-              }}
-              transformOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right'
-              }}
-            >
-              <Typography
-                component={'summary'}
-                style={{
-                  padding: '1.4em',
-                  backgroundColor: 'var(--cspr-dark-blue)',
-                  color: 'white'
-                }}
-              >
-                <b>Which algorithm?</b>
-                <br />
-                Open your <code>public_key_hex</code> file which should be in
-                the same location as the secret key file.
-                <br />
-                If the key starts with:
-                <ul>
-                  <li>01: ED25519</li>
-                  <li>02: SECP256k1</li>
-                </ul>
-              </Typography>
-            </Popover>
-          )}
-        </Box> */}
         <FormControl>
           <Box
             display={'flex'}
@@ -270,6 +202,20 @@ class AccountPage extends React.Component<Props, State> {
     );
   }
 
+  revealSecretKey = () => {
+    if (this.state.revealSecretKey) return;
+    confirm(
+      <div className="text-danger">Reveal Key</div>,
+      <span>Confirm password to reveal key</span>,
+      'Reveal',
+      'Cancel',
+      { requirePassword: true }
+    ).then(() => {
+      this.setState({ revealSecretKey: true });
+      setTimeout(() => this.setState({ revealSecretKey: false }), 5000);
+    });
+  };
+
   renderCreateForm() {
     const formData = this.accountForm as CreateAccountFormData;
     // const toggleDownloadKey = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,9 +261,16 @@ class AccountPage extends React.Component<Props, State> {
           fullWidth
           InputProps={{ readOnly: true, disabled: true }}
           label="Secret Key (Base64)"
-          placeholder="Base64 encoded Ed25519 secret key"
+          placeholder="Base64 encoded secret key"
           id="create-secret-key"
-          value={formData.secretKeyBase64.$ ? formData.secretKeyBase64.$ : ''}
+          onClick={this.revealSecretKey}
+          value={
+            formData.secretKeyBase64.$
+              ? this.state.revealSecretKey
+                ? formData.secretKeyBase64.$
+                : 'Click to Reveal'
+              : ''
+          }
         />
         {/* 
           Because the account is not yet saved it cannot be downloaded. 

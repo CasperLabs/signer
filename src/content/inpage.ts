@@ -38,6 +38,10 @@ class CasperLabsPluginHelper {
   async getVersion() {
     return this.call<string>('getVersion');
   }
+
+  async eventBus() {
+    return this.call<any>('eventBus');
+  }
 }
 
 // inject to window, so that Clarity code could use it.

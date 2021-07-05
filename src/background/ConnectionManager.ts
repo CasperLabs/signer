@@ -1,6 +1,7 @@
 import { getBucket, Bucket } from '@extend-chrome/storage';
 import { AppState } from '../lib/MemStore';
 import PopupManager from '../background/PopupManager';
+import { updateStatusEvent } from './utils';
 
 export interface Tab {
   tabId: number;
@@ -54,6 +55,7 @@ export default class ConnectionManager {
       const currentUrl = await this.getActiveTab();
       if (currentUrl) {
         this.appState.currentTab = { tabId: activeInfo.tabId, url: currentUrl };
+        updateStatusEvent(appState, 'tabUpdated');
       }
     });
   }
@@ -98,6 +100,10 @@ export default class ConnectionManager {
 
       this.store.set({ connectedSites: this.appState.connectedSites.toJS() });
 
+      if (tab && tab.tabId) {
+        updateStatusEvent(this.appState, 'connected');
+      }
+
       this.popupManager.closePopup();
     }
   }
@@ -110,6 +116,10 @@ export default class ConnectionManager {
         if (d.url === url) d.isConnected = false;
       });
       this.store.set({ connectedSites: this.appState.connectedSites.toJS() });
+
+      if (tab && tab.tabId) {
+        updateStatusEvent(this.appState, 'disconnected');
+      }
     }
   }
 

@@ -26,10 +26,18 @@ class ConnectSignerPage extends React.Component<Props, {}> {
     if (!this.props.connectSignerContainer.connectionStatus) {
       return (
         <div style={{ flexGrow: 1 }}>
-          <Typography align={'center'} variant={'h5'}>
-            Connect Signer to site?
+          <Typography
+            align={'center'}
+            variant={'h5'}
+            style={{ marginBottom: '1rem' }}
+          >
+            Connection Request
           </Typography>
-
+          <Typography align={'center'} variant={'body1'}>
+            Would you like to allow{' '}
+            <b>{this.props.connectSignerContainer.currentTab?.url}</b> to
+            connect?
+          </Typography>
           <Box mt={8}>
             <Grid
               container

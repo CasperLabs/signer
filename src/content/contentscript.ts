@@ -14,6 +14,12 @@ function injectCustomJs() {
     scriptTag.onload = function () {
       // remove after run the script
       container.removeChild(scriptTag);
+      chrome.runtime.onMessage.addListener((data: any) => {
+        const event = new CustomEvent(`signer:${data.name}`, {
+          detail: data.detail
+        });
+        window.dispatchEvent(event);
+      });
     };
   } catch (e) {
     console.error('CasperLabs provider injection failed.', e);

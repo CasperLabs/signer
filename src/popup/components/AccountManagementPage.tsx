@@ -34,7 +34,7 @@ import Dialog from '@material-ui/core/Dialog';
 import { confirm } from './Confirmation';
 import copy from 'copy-to-clipboard';
 import { KeyPairWithAlias } from '../../@types/models';
-import { PublicKey } from 'casper-client-sdk';
+import { CLPublicKey } from 'casper-js-sdk';
 import { GetApp } from '@material-ui/icons';
 
 const getItemStyle = (isDragging: boolean, draggableStyle: any) => ({
@@ -56,7 +56,7 @@ interface State {
   openKeyDialog: boolean;
   selectedAccount: KeyPairWithAlias | null;
   alias: string | null;
-  publicKey: PublicKey | null;
+  publicKey: CLPublicKey | null;
   publicKeyHex: string | null;
   accountHash: string | null;
   copyStatus: boolean;
@@ -141,7 +141,13 @@ class AccountManagementPage extends React.Component<Props, State> {
   handleClickRemove = (name: string) => {
     confirm(
       <div className="text-danger">Remove account</div>,
-      'Are you sure you want to remove this account?'
+      <span>
+        This account will be permanently deleted. Confirm password to remove
+        account: <b>{name}</b>
+      </span>,
+      'Remove',
+      'Cancel',
+      { requirePassword: true }
     ).then(() => this.props.authContainer.removeUserAccount(name));
   };
 

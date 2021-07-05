@@ -12,3 +12,25 @@ export function updateBadge(appState: AppState) {
   browser.browserAction.setBadgeText({ text: label });
   browser.browserAction.setBadgeBackgroundColor({ color: 'red' });
 }
+
+export function updateStatusEvent(appState: AppState, msg: string) {
+  if (!appState.currentTab) return;
+  const savedSite = appState.connectedSites.find(
+    s => s.url === appState.currentTab!.url
+  );
+  if (savedSite) {
+    const { selectedUserAccount, isUnlocked } = appState;
+    const { isConnected } = savedSite;
+    chrome.tabs.sendMessage(appState.currentTab!.tabId, {
+      name: msg,
+      detail: {
+        isUnlocked,
+        isConnected: isUnlocked ? savedSite.isConnected : null,
+        activeKey:
+          isConnected && isUnlocked && selectedUserAccount
+            ? selectedUserAccount.KeyPair.publicKey.toHex()
+            : null
+      }
+    });
+  }
+}

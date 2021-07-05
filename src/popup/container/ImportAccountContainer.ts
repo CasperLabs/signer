@@ -2,12 +2,14 @@ import { FieldState } from 'formstate';
 import {
   fieldSubmittable,
   valueRequired,
-  isAlgorithm
+  isAlgorithm,
+  humanReadable,
+  minNameLength
 } from '../../lib/FormValidator';
 import { action, computed, observable } from 'mobx';
 import { encodeBase64 } from 'tweetnacl-util';
 import ErrorContainer from './ErrorContainer';
-import { decodeBase16, Keys } from 'casper-client-sdk';
+import { decodeBase16, Keys } from 'casper-js-sdk';
 import ASN1 from '@lapo/asn1js';
 import Base64 from '@lapo/asn1js/base64';
 import Hex from '@lapo/asn1js/hex';
@@ -25,7 +27,9 @@ export class ImportAccountFormData implements SubmittableFormData {
     isAlgorithm
   );
   name: FieldState<string> = new FieldState<string>('').validators(
-    valueRequired
+    valueRequired,
+    minNameLength,
+    humanReadable
   );
   reHex = /^\s*(?:[0-9A-Fa-f][0-9A-Fa-f]\s*)+$/;
   @observable file: File | null = null;
@@ -155,13 +159,13 @@ export class CreateAccountFormData extends ImportAccountFormData {
       switch (fieldState.value) {
         case 'ed25519': {
           let ed25519KP = Keys.Ed25519.new();
-          this.publicKey.onChange(ed25519KP.publicKey.toAccountHex());
+          this.publicKey.onChange(ed25519KP.publicKey.toHex());
           this.secretKeyBase64.onChange(encodeBase64(ed25519KP.privateKey));
           break;
         }
         case 'secp256k1': {
           let secp256k1KP = Keys.Secp256K1.new();
-          this.publicKey.onChange(secp256k1KP.publicKey.toAccountHex());
+          this.publicKey.onChange(secp256k1KP.publicKey.toHex());
           this.secretKeyBase64.onChange(encodeBase64(secp256k1KP.privateKey));
           break;
         }

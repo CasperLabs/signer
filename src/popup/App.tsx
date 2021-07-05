@@ -21,6 +21,7 @@ import { MainAppBar } from './components/MainAppBar';
 import AnalyticsProvider from './components/AnalyticsProvider';
 import AccountManagementPage from './components/AccountManagementPage';
 import { ConnectedSitesPage } from './components/ConnectedSitesPage';
+import IdleTimer from 'react-idle-timer';
 
 export interface AppProps {
   errors: ErrorContainer;
@@ -32,8 +33,17 @@ export interface AppProps {
 }
 
 const App = (props: AppProps) => {
+  const lockOnIdle = () => {
+    if (props.authContainer.isUnLocked) props.authContainer.lock();
+  };
+
   return (
     <div>
+      {/* TODO
+      Lockout time is hardcoded here but this could be made configurable
+      to allow users to set convenient timeouts.
+      */}
+      <IdleTimer timeout={30000} onIdle={lockOnIdle} debounce={250} />
       <AnalyticsProvider />
       <MainAppBar
         authContainer={props.authContainer}

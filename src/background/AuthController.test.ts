@@ -2,7 +2,7 @@ import AuthController from './AuthController';
 import { AppState } from '../lib/MemStore';
 import { encodeBase64 } from 'tweetnacl-ts';
 import { storage } from '@extend-chrome/storage';
-import { Keys } from 'casper-client-sdk';
+import { Keys } from 'casper-js-sdk';
 import { KeyPairWithAlias } from '../@types/models';
 
 jest.mock('@extend-chrome/storage', () => {
@@ -47,6 +47,8 @@ jest.mock('browser-passworder', () => {
   };
 });
 
+jest.mock('webextension-polyfill-ts', () => ({ browser: {} }));
+
 describe('AuthController', () => {
   let appState: AppState;
   let authController: AuthController;
@@ -85,6 +87,26 @@ describe('AuthController', () => {
     await authController.lock();
     await authController.unlock(password);
     expect(authController.isUnlocked).toBeTruthy();
+  });
+
+  it('should allow 5 password attempts and then lock out', async () => {
+    for (let i = 5; i > -1; i--) {
+      expect(appState.unlockAttempts).toEqual(i);
+      try {
+        await authController.unlock(wrongPassword);
+      } catch (e) {
+        if (i === 0) {
+          expect(e.message).toBe('Locked out please wait');
+        } else {
+          expect(appState.unlockAttempts).toEqual(i - 1);
+        }
+      }
+    }
+    // After 5 failed attempts user should be locked out
+    expect(appState.lockedOut).toBeTruthy();
+    await authController.resetLockout();
+    expect(appState.unlockAttempts).toEqual(5);
+    expect(appState.lockedOut).toBeFalsy();
   });
 
   it('should be able to save and restore userAccounts and selectUserAccount information', async () => {
@@ -236,8 +258,8 @@ describe('AuthController', () => {
         keyPair.signatureAlgorithm
       );
       let account = authController.getSelectUserAccount();
-      expect(keyPair.publicKey.toAccountHex()).toEqual(
-        account.KeyPair.publicKey.toAccountHex()
+      expect(keyPair.publicKey.toHex()).toEqual(
+        account.KeyPair.publicKey.toHex()
       );
       expect(keyPair.publicKey.toAccountHash()).toEqual(
         account.KeyPair.publicKey.toAccountHash()
@@ -339,8 +361,8 @@ describe('AuthController', () => {
         keyPair.signatureAlgorithm
       );
       let account = authController.getSelectUserAccount();
-      expect(keyPair.publicKey.toAccountHex()).toEqual(
-        account.KeyPair.publicKey.toAccountHex()
+      expect(keyPair.publicKey.toHex()).toEqual(
+        account.KeyPair.publicKey.toHex()
       );
       expect(keyPair.publicKey.toAccountHash()).toEqual(
         account.KeyPair.publicKey.toAccountHash()
