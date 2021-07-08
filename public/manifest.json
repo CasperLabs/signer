@@ -24,7 +24,11 @@
         "*://localhost/*",
         "*://*.make.services/*",
         "*://cspr.live/*",
-        "*://*.cspr.live/*"
+        "*://*.cspr.live/*",
+        "*://casperholders.io/*",
+        "*://*.casperholders.io/*",
+        "*://casperholders.com/*",
+        "*://*.casperholders.com/*"
       ],
       "js": ["./scripts/content/content.js"],
       "run_at": "document_start",
