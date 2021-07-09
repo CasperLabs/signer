@@ -4,7 +4,8 @@ import PopupManager from '../background/PopupManager';
 import {
   DeployUtil,
   encodeBase16,
-  CLPublicKey
+  CLPublicKey,
+  CLPublicKeyType
 } from 'casper-js-sdk';
 
 export type deployStatus = 'unsigned' | 'signed' | 'failed';
@@ -30,8 +31,7 @@ export interface DeployData {
   id?: any;
   amount?: any;
   target?: string;
-  validator?: string;
-  delegator?: string;
+  deployArgs: Object;
 }
 
 /**
@@ -276,6 +276,8 @@ export default class SignMessageManager extends events.EventEmitter {
     if (deploy !== undefined && deploy.deploy !== undefined) {
       let header = deploy.deploy.header;
 
+      type Dict = { [key: string]: string };
+
       // TODO: Double-check that this is correct way to determine deploy type.
       const type = deploy.deploy.isTransfer()
         ? 'Transfer'
@@ -283,10 +285,10 @@ export default class SignMessageManager extends events.EventEmitter {
         ? 'Contract Call'
         : 'Contract Deployment';
 
+      const deployArgs: Dict = {};
+
       let amount;
       let target;
-      let validator;
-      let delegator;
 
       if (deploy.deploy.session.transfer) {
         // First let's check if the provided targetPublicKey matches the one used in deploy
@@ -319,17 +321,15 @@ export default class SignMessageManager extends events.EventEmitter {
           .value()
           .toString();
 
-        validator = (
-          deploy.deploy.session.storedContractByHash?.getArgByName(
-            'validator'
-          )! as CLPublicKey
-        ).toHex();
-
-        delegator = (
-          deploy.deploy.session.storedContractByHash?.getArgByName(
-            'delegator'
-          )! as CLPublicKey
-        ).toHex();
+        deploy.deploy.session.storedContractByHash.args.args.forEach(
+          (value, key) => {
+            if (value.clType() instanceof CLPublicKeyType) {
+              deployArgs[key] = (value as CLPublicKey).toHex();
+            } else {
+              deployArgs[key] = value.value().toString();
+            }
+          }
+        );
       }
 
       const transferId = deploy.deploy.session.transfer
@@ -351,8 +351,7 @@ export default class SignMessageManager extends events.EventEmitter {
         id: type === 'Transfer' ? transferId : undefined,
         amount: amount,
         target: type === 'Transfer' ? target : undefined,
-        validator,
-        delegator
+        deployArgs: deployArgs
       };
     } else {
       throw new Error('Deploy undefined!');

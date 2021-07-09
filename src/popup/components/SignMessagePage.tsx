@@ -117,19 +117,22 @@ class SignMessagePage extends React.Component<
         ]
       });
     } else if (deployData.deployType === 'Contract Deployment') {
+      let deployArgsRows = [];
+
+      for (let [key, value] of Object.entries(deployData.deployArgs)) {
+        key = key.charAt(0).toUpperCase() + key.slice(1);
+        key = key.replace('_', ' ');
+        if (value.length > 20) {
+          value = this.truncateString(value, 6, 6);
+        }
+        deployArgsRows.push(this.createRow(key, value));
+      }
+
       this.setState({
         rows: [
           ...baseRows,
-          this.createRow(
-            'Validator',
-            this.truncateString(deployData.validator!, 6, 6),
-            deployData.validator
-          ),
-          this.createRow(
-            'Delegator',
-            this.truncateString(deployData.delegator!, 6, 6),
-            deployData.delegator
-          )
+          this.createRow('Contract Arguments', ''),
+          ...deployArgsRows
         ]
       });
     } else {
