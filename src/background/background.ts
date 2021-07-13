@@ -140,4 +140,8 @@ async function setupPopupAPIServer() {
     'account.confirmPassword',
     accountController.confirmPassword.bind(accountController)
   );
+  rpc.register(
+    'connection.isIntegratedSite',
+    connectionManager.isIntegratedSite.bind(connectionManager)
+  );
 }

@@ -52,10 +52,9 @@ export const MainAppBar = observer((props: Props) => {
     connectedSites.some(
       site => site.url === currentTab.url && site.isConnected
     );
-
   if (props.authContainer.hasCreatedVault && props.authContainer.isUnLocked) {
     return (
-      <React.Fragment>
+      <>
         <AppBar
           position="static"
           className={classes.root}
@@ -67,16 +66,21 @@ export const MainAppBar = observer((props: Props) => {
             </IconButton>
             <Tooltip
               title={
-                props.authContainer.userAccounts.length
-                  ? 'Toggle Connection to Site'
-                  : 'Add an Account to Connect'
+                props.connectionContainer.integratedSite
+                  ? props.authContainer.userAccounts.length
+                    ? 'Toggle Connection to Site'
+                    : 'Add an Account to Connect'
+                  : 'This site is not integrated with Signer'
               }
             >
               <span className={classes.toggleWrapper}>
                 <Button
                   // Toggles connection status
                   className={classes.toggleButton}
-                  disabled={!props.authContainer.userAccounts.length}
+                  disabled={
+                    !props.connectionContainer.integratedSite ||
+                    !props.authContainer.userAccounts.length
+                  }
                   variant="outlined"
                   color={connected ? 'primary' : 'default'}
                   size="large"
@@ -102,7 +106,7 @@ export const MainAppBar = observer((props: Props) => {
           </Toolbar>
         </AppBar>
         <div className={classes.toolbarMargin}></div>
-      </React.Fragment>
+      </>
     );
   } else {
     return <div className={classes.toolbarMargin}></div>;

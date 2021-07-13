@@ -27,6 +27,7 @@ export class BackgroundManager {
 
   @action.bound
   private onStateUpdate(appState: AppState) {
+    this.appState.isIntegratedSite = appState.isIntegratedSite;
     this.appState.isUnlocked = appState.isUnlocked;
     this.appState.unlockAttempts = appState.unlockAttempts;
     this.appState.lockoutTimerStarted = appState.lockoutTimerStarted;
@@ -181,6 +182,12 @@ export class BackgroundManager {
   public confirmPassword(password: string) {
     return this.errors.withCapture(
       this.rpc.call<boolean>('account.confirmPassword', password)
+    );
+  }
+
+  public isIntegratedSite(hostname: string) {
+    return this.errors.withCapture(
+      this.rpc.call<boolean>('connection.isIntegratedSite', hostname)
     );
   }
 }

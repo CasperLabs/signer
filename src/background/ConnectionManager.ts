@@ -55,6 +55,7 @@ export default class ConnectionManager {
       const currentUrl = await this.getActiveTab();
       if (currentUrl) {
         this.appState.currentTab = { tabId: activeInfo.tabId, url: currentUrl };
+        this.appState.isIntegratedSite = this.isIntegratedSite(currentUrl);
         updateStatusEvent(appState, 'tabUpdated');
       }
     });
@@ -145,5 +146,28 @@ export default class ConnectionManager {
         resolve(null);
       });
     });
+  }
+
+  public isIntegratedSite(hostname: string) {
+    // if (!hostname) return;
+    // all sites injected with the the content script
+    const injectedSites =
+      chrome.runtime.getManifest().content_scripts![0].matches;
+    if (!injectedSites)
+      throw new Error('Could not retrieve sites from manifest');
+    for (let site of injectedSites) {
+      let sanitised = site
+        .replaceAll('/', '')
+        .replace(':', '')
+        .replaceAll('*', '');
+      if (sanitised.startsWith('.', 0)) {
+        sanitised = sanitised.replace('.', '');
+      }
+      const sanitisedRegex = new RegExp(sanitised);
+      if (hostname.match(sanitisedRegex)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

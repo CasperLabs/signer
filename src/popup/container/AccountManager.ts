@@ -187,6 +187,11 @@ class AccountManager {
         this.confirmPasswordForm.$.confirmPasswordField.hasError);
     return disabled;
   }
+
+  @computed
+  get idleTimeoutMins(): number {
+    return this.appState.idleTimeoutMins;
+  }
 }
 
 export default AccountManager;

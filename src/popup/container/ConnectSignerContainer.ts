@@ -68,6 +68,18 @@ class ConnectSignerContainer {
   get currentTab() {
     return this.appState.currentTab;
   }
+
+  // Is the current site injected with the content script?
+  // And therefore is it a valid integrated client.
+  // Based on the list of URLs from the extension manifest.json
+  async isIntegratedSite(hostname: string) {
+    return await this.backgroundManager.isIntegratedSite(hostname);
+  }
+
+  @computed
+  get integratedSite() {
+    return this.appState.isIntegratedSite;
+  }
 }
 
 export default ConnectSignerContainer;

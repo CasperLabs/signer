@@ -34,3 +34,20 @@ export function updateStatusEvent(appState: AppState, msg: string) {
     });
   }
 }
+
+export function truncateString(
+  longString: string,
+  startChunk: number,
+  endChunk: number
+): string {
+  if (!longString) throw new Error('Error parsing long string.');
+  return (
+    longString.substring(0, startChunk) +
+    '...' +
+    longString.substring(longString.length - endChunk)
+  );
+}
+
+export function numberWithSpaces(num: number) {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}

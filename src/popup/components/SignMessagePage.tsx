@@ -19,10 +19,7 @@ import Typography from '@material-ui/core/Typography';
 import Grid from '@material-ui/core/Grid';
 import Box from '@material-ui/core/Box';
 import { deployWithID } from '../../background/SignMessageManager';
-
-// TODO: Move it to helper functions
-const numberWithSpaces = (num: number) =>
-  num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+import { truncateString, numberWithSpaces } from 'background/utils';
 
 const styles = () => ({
   tooltip: {
@@ -66,18 +63,6 @@ class SignMessagePage extends React.Component<
     return { key, value, title };
   }
 
-  truncateString(
-    longString: string,
-    startChunk: number,
-    endChunk: number
-  ): string {
-    return (
-      longString.substring(0, startChunk) +
-      '...' +
-      longString.substring(longString.length - endChunk)
-    );
-  }
-
   async generateDeployInfo(deployToSign: deployWithID) {
     let deployData = await this.props.signMessageContainer.parseDeployData(
       deployToSign.id
@@ -85,33 +70,44 @@ class SignMessagePage extends React.Component<
     let baseRows = [
       this.createRow(
         'Signing Key',
-        this.truncateString(deployData.signingKey, 6, 6),
+        truncateString(deployData.signingKey, 6, 6),
         deployData.signingKey
       ),
       this.createRow(
         'Account',
-        this.truncateString(deployData.account, 6, 6),
+        truncateString(deployData.account, 6, 6),
         deployData.account
       ),
       this.createRow(
         'Hash',
-        this.truncateString(deployData.deployHash, 6, 6),
+        truncateString(deployData.deployHash, 6, 6),
         deployData.deployHash
       ),
       this.createRow('Timestamp', deployData.timestamp),
       this.createRow('Chain Name', deployData.chainName),
       this.createRow('Gas Price', deployData.gasPrice),
-      this.createRow('Deploy Type', deployData.deployType),
-      this.createRow('Amount', `${numberWithSpaces(deployData.amount)} motes`)
+      // TODO: Payment data needs to be formatted in the background before being sent to UI here.
+      this.createRow('Payment', deployData.payment),
+      this.createRow('Deploy Type', deployData.deployType)
     ];
     if (deployData.deployType === 'Transfer') {
+      console.log({ recipient: deployData.recipient });
       this.setState({
         rows: [
           ...baseRows,
           this.createRow(
+            'Recipient (Key)',
+            truncateString(deployData.recipient!, 6, 6),
+            deployData.recipient
+          ),
+          this.createRow(
             'Target',
-            this.truncateString(deployData.target!, 6, 6),
+            truncateString(deployData.target!, 6, 6),
             deployData.target
+          ),
+          this.createRow(
+            'Amount',
+            `${numberWithSpaces(deployData.amount)} motes`
           ),
           this.createRow('Transfer ID', deployData.id)
         ]
@@ -122,12 +118,12 @@ class SignMessagePage extends React.Component<
           ...baseRows,
           this.createRow(
             'Validator',
-            this.truncateString(deployData.validator!, 6, 6),
+            truncateString(deployData.validator!, 6, 6),
             deployData.validator
           ),
           this.createRow(
             'Delegator',
-            this.truncateString(deployData.delegator!, 6, 6),
+            truncateString(deployData.delegator!, 6, 6),
             deployData.delegator
           )
         ]

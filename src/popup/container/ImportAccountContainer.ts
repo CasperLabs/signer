@@ -106,11 +106,11 @@ export class ImportAccountFormData implements SubmittableFormData {
           } else {
             // File is defined now check format by extension
             const fileExt = file[1];
-            if (fileExt !== 'pem') {
+            if (fileExt !== 'pem' && fileExt !== 'cer') {
               this.errors.capture(
                 Promise.reject(
                   new Error(
-                    `Invalid file format: .${fileExt}. Please upload a .pem file.`
+                    `Invalid file format: .${fileExt}. Please upload a .pem or .cer file.`
                   )
                 )
               );
@@ -188,5 +188,23 @@ export class CreateAccountFormData extends ImportAccountFormData {
   resetFields() {
     super.resetFields();
     this.publicKey.reset();
+  }
+}
+
+export class RenameAccountFormData implements SubmittableFormData {
+  name: FieldState<string> = new FieldState<string>('').validators(
+    valueRequired,
+    minNameLength,
+    humanReadable
+  );
+
+  @computed
+  get submitDisabled(): boolean {
+    return !fieldSubmittable(this.name);
+  }
+
+  @action
+  resetFields() {
+    this.name.reset();
   }
 }

@@ -1,11 +1,7 @@
 import * as events from 'events';
 import { AppState } from '../lib/MemStore';
 import PopupManager from '../background/PopupManager';
-import {
-  DeployUtil,
-  encodeBase16,
-  CLPublicKey
-} from 'casper-js-sdk';
+import { DeployUtil, encodeBase16, CLPublicKey } from 'casper-js-sdk';
 
 export type deployStatus = 'unsigned' | 'signed' | 'failed';
 export interface deployWithID {
@@ -30,6 +26,7 @@ export interface DeployData {
   id?: any;
   amount?: any;
   target?: string;
+  recipient?: string;
   validator?: string;
   delegator?: string;
 }
@@ -105,17 +102,21 @@ export default class SignMessageManager extends events.EventEmitter {
     return new Promise<string>((resolve, reject) => {
       let publicKey = this.appState.selectedUserAccount?.KeyPair.publicKey;
       if (!this.appState.connectionStatus) {
-        return reject(new Error('Please connect to the Signer first.'));
-      } else if (publicKey === undefined) {
-        return reject(new Error('Please create an account first.'));
+        return reject(new Error('Please connect to the Signer to read key'));
       }
-      if (publicKey.isEd25519()) {
-        return resolve(publicKey.toHex());
-      } else if (publicKey.isSecp256K1()) {
-        return resolve(publicKey.toHex());
-      } else {
-        return reject(new Error('Key was not of expected format!'));
+      if (!this.appState.isUnlocked || this.appState.lockedOut) {
+        return reject(new Error('Please unlock the Signer to read key'));
       }
+      if (!publicKey) {
+        return reject(
+          new Error(
+            'Please create an account first before attempting to read key'
+          )
+        );
+      }
+      if (!publicKey.isEd25519 && !publicKey.isSecp256K1())
+        reject(new Error('Key was not of expected format!'));
+      return publicKey.toHex();
     });
   }
   /**
@@ -131,22 +132,16 @@ export default class SignMessageManager extends events.EventEmitter {
     const id: number = this.createId();
 
     try {
+      let innerDeploy = DeployUtil.deployFromJson(deployJson);
       this.unsignedDeploys.push({
         id: id,
         status: 'unsigned',
-        deploy: DeployUtil.deployFromJson(deployJson),
+        deploy: innerDeploy,
         signingKey: sourcePublicKey,
         targetKey: targetPublicKey
       });
     } catch (err) {
-      this.unsignedDeploys.push({
-        id: id,
-        status: 'failed',
-        deploy: undefined,
-        signingKey: sourcePublicKey,
-        targetKey: targetPublicKey,
-        error: err
-      });
+      throw new Error(err);
     }
 
     this.updateAppState();
@@ -272,31 +267,28 @@ export default class SignMessageManager extends events.EventEmitter {
   }
 
   public parseDeployData(deployId: number): DeployData {
-    let deploy = this.getDeployById(deployId);
-    if (deploy !== undefined && deploy.deploy !== undefined) {
-      let header = deploy.deploy.header;
+    let deployWithID = this.getDeployById(deployId);
+    if (deployWithID !== undefined && deployWithID.deploy !== undefined) {
+      let header = deployWithID.deploy.header;
 
       // TODO: Double-check that this is correct way to determine deploy type.
-      const type = deploy.deploy.isTransfer()
+      const type = deployWithID.deploy.isTransfer()
         ? 'Transfer'
-        : deploy.deploy.session.isModuleBytes()
+        : deployWithID.deploy.session.isModuleBytes()
         ? 'Contract Call'
         : 'Contract Deployment';
 
-      let amount;
-      let target;
-      let validator;
-      let delegator;
+      let amount, target, recipient, validator, delegator;
 
-      if (deploy.deploy.session.transfer) {
+      if (deployWithID.deploy.session.transfer) {
         // First let's check if the provided targetPublicKey matches the one used in deploy
         // We're doing it because its impossible to extract target in a form of PublicKey from Deploy
         const providedTargetKeyHash = encodeBase16(
-          CLPublicKey.fromHex(deploy.targetKey).toAccountHash()
+          CLPublicKey.fromHex(deployWithID.targetKey).toAccountHash()
         );
 
         const deployTargetKeyHash = encodeBase16(
-          deploy.deploy.session.transfer?.getArgByName('target')!.value()
+          deployWithID.deploy.session.transfer?.getArgByName('target')!.value()
         );
 
         if (providedTargetKeyHash !== deployTargetKeyHash) {
@@ -305,57 +297,69 @@ export default class SignMessageManager extends events.EventEmitter {
           );
         }
 
-        target = deploy.targetKey;
+        const targetByteArray = deployWithID.deploy.session.transfer
+          ?.getArgByName('target')!
+          .value()
+          .toString();
 
-        amount = deploy.deploy.session.transfer
+        target = encodeBase16(targetByteArray);
+
+        recipient = deployWithID.targetKey;
+
+        amount = deployWithID.deploy.session.transfer
           ?.getArgByName('amount')!
           .value()
           .toString();
       }
 
-      if (deploy.deploy.session.storedContractByHash) {
-        amount = deploy.deploy.session.storedContractByHash
+      if (deployWithID.deploy.session.storedContractByHash) {
+        amount = deployWithID.deploy.session.storedContractByHash
           ?.getArgByName('amount')!
           .value()
           .toString();
 
         validator = (
-          deploy.deploy.session.storedContractByHash?.getArgByName(
+          deployWithID.deploy.session.storedContractByHash?.getArgByName(
             'validator'
           )! as CLPublicKey
         ).toHex();
 
         delegator = (
-          deploy.deploy.session.storedContractByHash?.getArgByName(
+          deployWithID.deploy.session.storedContractByHash?.getArgByName(
             'delegator'
           )! as CLPublicKey
         ).toHex();
       }
 
-      const transferId = deploy.deploy.session.transfer
+      const transferId = deployWithID.deploy.session.transfer
         ?.getArgByName('id')!
         .value()
         .unwrap()
         .value()
         .toString();
 
+      const deployAccount = header.account.toHex();
+      const payment = encodeBase16(
+        deployWithID.deploy.payment.toBytes().unwrap()
+      );
       return {
-        deployHash: encodeBase16(deploy.deploy.hash),
-        signingKey: deploy.signingKey,
-        account: header.account.toHex(),
+        deployHash: encodeBase16(deployWithID.deploy.hash),
+        signingKey: deployWithID.signingKey,
+        account: deployAccount,
         chainName: header.chainName,
         timestamp: new Date(header.timestamp).toLocaleString(),
         gasPrice: header.gasPrice,
-        payment: encodeBase16(deploy.deploy.payment.toBytes().unwrap()),
+        payment: payment,
         deployType: type,
-        id: type === 'Transfer' ? transferId : undefined,
+        id: transferId,
         amount: amount,
-        target: type === 'Transfer' ? target : undefined,
-        validator,
-        delegator
+        target: target,
+        recipient: recipient,
+        validator: validator,
+        delegator: delegator
       };
     } else {
-      throw new Error('Deploy undefined!');
+      throw new Error();
     }
   }
 
